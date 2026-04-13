@@ -202,8 +202,8 @@ IMPACT_BANDS = [
     ("Muy bajo", 0, 0.1),
     ("Bajo", 0.1, 2),
     ("Medio", 2, 10),
-    ("Alto", 10, 25),
-    ("Muy alto", 25, float("inf")),
+    ("Alto", 10, 45),
+    ("Muy alto", 45, float("inf")),
 ]
 
 RISK_MATRIX = {

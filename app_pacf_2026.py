@@ -24,14 +24,17 @@ st.markdown("""
     .block-container {padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1400px;}
     h1, h2, h3 {font-family: "Segoe UI", sans-serif;}
     .main-title {
+        display:block;
         text-align:center;
         font-weight:700;
         font-size: 1.75rem;
-        line-height: 1.25;
-        margin-bottom: 0.35rem;
+        line-height: 1.45;
+        margin: 0 0 0.35rem 0;
+        padding: 0.25rem 0 0.35rem 0;
         white-space: normal;
         word-break: normal;
         overflow-wrap: anywhere;
+        overflow: visible;
     }
     .sub-title {
         text-align:center;

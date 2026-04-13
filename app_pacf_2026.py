@@ -621,7 +621,7 @@ def build_excel_export(frames: Dict[str, pd.DataFrame]) -> bytes:
 # ============================================================
 # TABLAS VISUALES
 # ============================================================
-def display_visual_table(df: pd.DataFrame, title: str, percent_cols=None, euro_cols=None, int_cols=None, badge_cols=None):
+def display_visual_table(df: pd.DataFrame, title: str, percent_cols=None, euro_cols=None, int_cols=None, badge_cols=None, sum_cols=None, export_key=None):
     st.markdown(f"### {title}")
     if df.empty:
         st.info("No hay datos.")
@@ -631,6 +631,7 @@ def display_visual_table(df: pd.DataFrame, title: str, percent_cols=None, euro_c
     euro_cols = euro_cols or []
     int_cols = int_cols or []
     badge_cols = badge_cols or []
+    sum_cols = sum_cols or []
 
     show = df.copy()
     for c in percent_cols:
@@ -649,8 +650,35 @@ def display_visual_table(df: pd.DataFrame, title: str, percent_cols=None, euro_c
         if c in show.columns:
             show[c] = show[c].apply(badge_html)
 
+    if sum_cols:
+        total_row = {c: "" for c in df.columns}
+        total_row[df.columns[0]] = "<strong>TOTAL</strong>"
+        for c in sum_cols:
+            if c in df.columns:
+                val = pd.to_numeric(df[c], errors="coerce").sum()
+                if c in percent_cols:
+                    formatted = fmt_es_pct(val)
+                elif c in euro_cols:
+                    formatted = fmt_es_eur(val)
+                elif c in int_cols:
+                    formatted = fmt_es_num(val, 0)
+                else:
+                    formatted = fmt_es_num(val)
+                total_row[c] = f"<strong>{formatted}</strong>"
+        show = pd.concat([show, pd.DataFrame([total_row])], ignore_index=True)
+
     html_table = show.to_html(index=False, escape=False)
     st.markdown(html_table, unsafe_allow_html=True)
+
+    if export_key:
+        excel_bytes = build_excel_export({title: df})
+        st.download_button(
+            "⬇️ Exportar tabla a Excel",
+            data=excel_bytes,
+            file_name=f"{export_key}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"dl_{export_key}",
+        )
 
 
 def display_matrix_grid(df_matriz: pd.DataFrame):
@@ -1103,7 +1131,14 @@ c2.markdown(f'<div class="kpi"><div class="kpi-title">Registros válidos</div><d
 c3.markdown(f'<div class="kpi"><div class="kpi-title">Registros excluidos</div><div class="kpi-value">{fmt_es_num(df_summary["Registros excluidos"].sum(),0)}</div></div>', unsafe_allow_html=True)
 c4.markdown(f'<div class="kpi"><div class="kpi-title">Importe agregado</div><div class="kpi-value">{fmt_es_eur(df_summary["Importe total"].sum())}</div></div>', unsafe_allow_html=True)
 
-display_visual_table(df_summary, "Resumen anual de carga", euro_cols=["Importe total"], int_cols=["Registros válidos", "Registros excluidos", "Expedientes únicos", "Secciones"])
+display_visual_table(
+    df_summary,
+    "Resumen anual de carga",
+    euro_cols=["Importe total"],
+    int_cols=["Registros válidos", "Registros excluidos", "Expedientes únicos", "Secciones"],
+    sum_cols=["Registros válidos", "Registros excluidos", "Expedientes únicos", "Importe total"],
+    export_key="resumen_carga",
+)
 
 # ============================================================
 # TABLAS ANUALES
@@ -1135,7 +1170,9 @@ for year in sorted(normalized_by_year.keys()):
             f"Probabilidad del riesgo de incumplimiento — {year}",
             percent_cols=["P1 (Id*s / Its)", "P2 (Its / It)", "Ps (%)"],
             int_cols=["Id*s", "Its"],
-            badge_cols=["Nivel de probabilidad"]
+            badge_cols=["Nivel de probabilidad"],
+            sum_cols=["Id*s", "Its", "P2 (Its / It)"],
+            export_key=f"prob_{year}",
         )
 
     with tab2:
@@ -1144,7 +1181,9 @@ for year in sorted(normalized_by_year.keys()):
             f"Impacto económico — {year}",
             euro_cols=["Ms", "M"],
             percent_cols=["Is (%)"],
-            badge_cols=["Nivel de impacto"]
+            badge_cols=["Nivel de impacto"],
+            sum_cols=["Ms", "Is (%)"],
+            export_key=f"impacto_{year}",
         )
 
     with tab3:
@@ -1153,7 +1192,9 @@ for year in sorted(normalized_by_year.keys()):
             df_year[detail_cols],
             f"Detalle de expedientes — {year}",
             euro_cols=["Importe"],
-            int_cols=["Número de Informes Favorables", "Número de Informes Desfavorables"]
+            int_cols=["Número de Informes Favorables", "Número de Informes Desfavorables"],
+            sum_cols=["Importe", "Número de Informes Favorables", "Número de Informes Desfavorables"],
+            export_key=f"detalle_{year}",
         )
 
 # ============================================================
@@ -1179,7 +1220,8 @@ with tabf1:
         prob_final[["Sección", "Descripción"] + [c for c in prob_final.columns if c.startswith("Ps ")] + [col_media_prob, "Nivel de probabilidad", "Pesos aplicados"]],
         "Media ponderada de probabilidad",
         percent_cols=pcols,
-        badge_cols=["Nivel de probabilidad"]
+        badge_cols=["Nivel de probabilidad"],
+        export_key="prob_final",
     )
 
 with tabf2:
@@ -1188,7 +1230,9 @@ with tabf2:
         impact_final[["Sección", "Descripción"] + [c for c in impact_final.columns if c.startswith("Is ")] + ["Media trienal impacto", "Nivel de impacto", "Severidad", "Modo impacto"]],
         "Media trienal de impacto",
         percent_cols=icols,
-        badge_cols=["Nivel de impacto"]
+        badge_cols=["Nivel de impacto"],
+        sum_cols=icols,
+        export_key="impacto_final",
     )
 
 with tabf3:
@@ -1200,7 +1244,8 @@ with tabf3:
         matriz_final[cols_matriz],
         "Mapa del riesgo resultante",
         percent_cols=pct_matriz,
-        badge_cols=badge_matriz
+        badge_cols=badge_matriz,
+        export_key="matriz_riesgo",
     )
     display_matrix_grid(matriz_final)
 
